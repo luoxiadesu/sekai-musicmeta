@@ -12,9 +12,27 @@
 | `data/music_metas-en.json`  | en |
 | `data/music_metas-kr.json`  | kr |
 
-## 同步策略
+## 同步方式
 
-GitHub Action 每小时第 7 分跑 `scripts/sync.sh`，**仅在数据变化时**才提交（见 `.github/workflows/sync.yml`）。也支持在 Actions 页面手动触发。
+> 上游 Cloudflare 拦了 GitHub Actions 的 IP，所以只能本地跑。
+
+手动一键同步（拉数据 + 仅在变化时 commit + push）：
+
+```bash
+bash scripts/sync.sh
+```
+
+只本地更新不推送：
+
+```bash
+SKIP_PUSH=1 bash scripts/sync.sh
+```
+
+可选：用 crontab 自动跑，例如每小时第 7 分：
+
+```cron
+7 * * * * cd /home/luoxia/dev/mycode/sekai-musicmeta && bash scripts/sync.sh >> /tmp/sekai-musicmeta-sync.log 2>&1
+```
 
 ## bot 端配置
 
