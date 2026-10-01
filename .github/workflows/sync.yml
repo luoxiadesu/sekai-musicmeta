@@ -1,0 +1,54 @@
+name: Sync musicmeta
+
+on:
+  schedule:
+    # UTC 00:17 = 北京时间 08:17 / 日本时间 09:17。
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+    inputs:
+      force_vpn:
+        description: Skip the direct download to test VPN Gate
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-musicmeta
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream, with VPN Gate fallback
+        env:
+          FETCH_ONLY: '1'
+          CURL_RETRIES: '1'
+          CURL_MAX_TIME: '30'
+          FORCE_VPN: ${{ inputs.force_vpn }}
+        run: |
+          if [[ "$FORCE_VPN" != "true" ]] && timeout --signal=TERM --kill-after=10s 180s bash scripts/sync.sh; then
+            echo "Direct download succeeded."
+          else
+            echo "Trying VPN Gate fallback (or forced VPN test)."
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends openvpn
+            python3 scripts/vpngate_sync.py
+          fi
+
+      - name: Commit and push changed data
+        run: |
+          if [[ -z "$(git status --porcelain -- data/)" ]]; then
+            echo "No changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/music_metas*.json
+          git commit -m "chore: sync musicmeta $(date -u +%FT%TZ)"
+          git push
